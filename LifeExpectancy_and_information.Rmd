@@ -1,0 +1,329 @@
+---
+title: "Final Project"
+author: "Tyler Auger"
+date: "CS555"
+output: pdf_document
+urlcolor: blue
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+*Introduction and Data Description relate to both 1.) + 2.) in assignment outline*
+
+## Introduction
+
+The data in "LifeExpectancyData.csv" gives the life expectancy of world countries and various factors that might impact life expectancy. The original data includes many interesting contributors, such as immunization rates for various diseases, thinness(underweight) percentages of various population age groups, etc; however, in this study a more broad analysis will be performed. The original data consisted of 2938 observations and 22 variables. Below is a link to the original data, which was gathered from kaggle. 
+
+[Life Expectancy Raw Data](https://www.kaggle.com/kumarajarshi/life-expectancy-who/)
+
+Keeping a general prospective while exploring the data set, a few research questions came to my mind. First, has life expectancy increased from 2000 to 2015? While we know this to be true over the last 100 years, I specifically want to look at the time period relating to the recent tech explosion, i.e., the explosion of the internet and information age (2000 - 2015). Next, I was curious about the impact of some of the variables on life expectancy, and the ability to model life expectancy from these variables. As stated earlier, a very long in depth study could take place to analyze all of the 22 potential explanatory variables, but in this general case I will specifically be looking at the influence from infant deaths(per 1000 population), BMI(average), Total expenditure(general government spending on health as a percentage of total expenditure), and schooling(average number of years attended). Finally, looking at the status of countries (developed vs developing), a two - sample test of proportions can be used to determine if developing countries have a greater risk of having a life expectancy below the mean life expectancy. Further, if a proven disproportion does exist, a logistic regression model can be attempted to determine a quantifiable risk. All together this will allow us to formulate an opinion on the general theme of the study, "What is the impact of the tech and information boom on global life expectancy?"
+
+## Describing the Data
+
+**first 50 observations for idea of data set**
+
+*not .html, so can't do paged table (to my understanding), reason for just example - too many observations* 
+
+```{r, echo=FALSE, message=FALSE}
+
+#data found at: https://www.kaggle.com/kumarajarshi/life-expectancy-who/
+
+#importing data to rstudio
+data_raw <-  read.csv("LifeExpectancyData.csv")
+
+#This data consists of 2000-2015; since I'm looking at
+#mostly comparisons, I'm taking the most recent
+#year, 2015, and oldest year,2000, for all available countries + the year with most data for modeling, 2014
+#ALSO** looking at specific variables of interest, in this 
+#case Country, Status, Year, Life.expectancy, infant.deaths*(per1000),
+#BMI, Total.expenditure*(general government spending on health as a percentage of total expenditure)*, Schooling 
+data <- subset(data_raw, Year == 2015 | Year == 2000 | Year == 2014,
+                     select = c(Country,
+                                Status,
+                                Year,
+                                Life.expectancy,
+                                infant.deaths,
+                                BMI,
+                                Total.expenditure,
+                                Schooling)) 
+
+#data set size
+num.row <- nrow(data) #549
+num.col <-ncol(data) #8
+#printing table of first 30 observations as example
+library(knitr)
+kable(head(data, 50))
+```
+
+After importing the raw data into Rstudio, I then had to subset the data, containing only the columns and observations I needed for the study. In this case, I chose to restrict the observations to those from 2000, 2014, and 2015. This was needed to explore the possible significant change in life expectancy between the start of the tech and information explosion, to the latest available time from the data (since we are still very much in this explosion), i.e., data from 2000 and 2015. I then restricted the columns to only the variables needed for my broad modeling mentioned in the introduction, and the year 2014 (since not enough data was available in regards to total expenditure for the year 2015). I also decided to keep Country as a reference if wanting to compare my data set to the raw data; however, it is not needed to answer the proposed research questions. The final, clean data set for this study contained 549 observations and 8 variables, with 183 observations per year. Also of importance when modeling the data, some of the variables have "NA" observations. Thus the rows containing "NA" will be dropped from the data. Further, to insure that the data is independent and random, only the data relating to the most recent year with enough data, 2014, will be used when modeling. 
+
+
+## Methods
+
+*assignment outline 3.)*
+
+First, it is important to note that all significance tests will be tested at the alpha level of 0.05.
+
+A two-sample mean test can be used to determine if there was a significant change in the mean life expectancy between 2000 and 2015. First a boxplot can be used to visually explore the difference in life expectancy distributions between 2000 and 2015. 
+
+When modeling the data, a multiple linear regression may be used to test if the variables infant deaths, BMI, Total expenditure, and schooling significantly model life expectancy. A scatterplot matrix will also help us look at correlations among the variables, and address any issues, i.e. collinearity, normality, etc. If the general model is deemed significant, we can then test the significance of each individual variable, and measure the fit of an overall final model. 
+
+Finally, looking specifically at the status (developed vs developing) of each observation in 2014 and whether the life expectancy relating to a country's status is above the mean life expectancy from 2014, we can formally test whether the proportion of developed and developing countries with life expectancy greater than the mean life expectancy of 2014 are equal. If there is a difference, we can then perform logistic regression. If proven significant, we can develop an odds ratio on the possible increased risk of having an above average life expectancy based on country status.
+
+All together, this will help us formulate an informed opinion to the impact of information accessibility (the symbiotic relationship between tech and information availability - such as the global availability of a "smart phone" and internet) on life expectancy.
+
+
+## Results: Life Expectancy 2000 vs 2015
+
+*assignment outline 4.) split between each "Results:"*
+
+```{r, echo=FALSE}
+
+#life expectancy for 2000
+data_LE2000 <- subset(data, Year == 2000, select = Life.expectancy)
+
+#life expectancy for 2015
+data_LE2015 <- subset(data, Year == 2015, select = Life.expectancy)
+
+#for box plots
+data_boxplot <- subset(data, Year == 2000 | Year == 2015,
+                       select = c(Year, Life.expectancy))
+
+#Making Year a factor for boxplots
+data_boxplot$Year <- as.factor(data_boxplot$Year)
+
+#Boxplots
+par(pty="s")
+boxplot(data_boxplot$Life.expectancy~data_boxplot$Year, data=data_boxplot,
+        main="Life Expectancy Between Years",
+        xlab="",
+        ylab="Years", 
+        col="purple",
+        ylim=c(20,100))
+```
+
+**summary of life expectancy for 2000**
+
+```{r, echo=FALSE}
+
+#getting #observations 
+n1 <- nrow(data_LE2000) #183
+
+#Summary of 2000
+summary(data_LE2000)
+print(paste("With a standard deviation of", sapply(data_LE2000, sd)))
+```
+
+**summary of life expectancy for 2015**
+
+```{r, echo=FALSE}
+
+#getting #observations 
+n2 <- nrow(data_LE2015) #183
+
+#summary of 2015
+summary(data_LE2015)
+print(paste("With a standard deviation of", sapply(data_LE2015, sd)))
+```
+
+Looking at the boxplots and summary of the two samples, there seems to definitely be a difference in the mean life expectancy between the 15 years. Also, the standard deviation of life expectancy decreased from 2000 to 2015. Further, it looks like there are no outlier problems. While this insinuates that there has been a significant increase in life expectancy, a two-sample test of means will confirm suspicions.
+
+```{r, echo=FALSE}
+
+#two-sample test of means
+t.test(data_LE2000, data_LE2015,
+       alternative="two.sided", conf.level = 0.95)
+
+#checking above output manually 
+t.stat <-  (sapply(data_LE2000, mean) -      
+            sapply(data_LE2015, mean)) /
+  sqrt(((sapply(data_LE2000, sd)^2)/n1) +
+       ((sapply(data_LE2015, sd)^2)/n2))
+#To check.. correct @-5.019985 
+crit.t <- qt(.95, 183) #1.653223
+```
+
+From the results above, there is significant evidence at the alpha level of 0.05 that the mean life expectancy is different between 2000 and 2015. Further, looking at the difference in sample means and the confidence interval provided above, with 95% confidence the true mean difference in life expectancy between 2000 and 2015 is -6.773453 and -2.959880. This confirms that life expectancy has significantly increased during the tech and information boom between 2000 and 2015. 
+
+## Results: Modeling Life Expectancy 
+
+```{r, echo=FALSE, message=FALSE}
+
+library(dplyr)
+library(ggplot2)
+library(GGally)
+
+#getting just complete rows for mlr in year 2014
+data_2014 <- subset(data, Year == 2014)
+data_noNA_2014 <- data_2014[complete.cases(data_2014),] 
+data_mlr <- subset(data_noNA_2014, select = c(Life.expectancy, infant.deaths, BMI, Total.expenditure, Schooling))
+
+#scatterplot matrix 
+data_mlr %>% ggpairs(upper = list(continuous = wrap('cor', size = 5)))
+```
+
+Looking at the scatterplots to graphically analyze and understand the correlations among the variables, there seems to be a massive correlation between schooling and life expectancy. While this is not unexpected, it is surprising to see such a strong correlation, especially compared to the other variables. Further, it looks like there may be an issue using infant deaths in the model. A negative correlation does not make much sense, since young person deaths would drastically lower the mean life expectancy, but this will be explored further after globally testing the strength of the model, or re-trying the global test without infant deaths if the model is not deemed significant. Also, there seems like there could be an issue with normality for both infant deaths and BMI; however, based on the correlations, these may be ineffective in the model anyways after further analysis. Finally, collinearity does not seem to be an issue between the explanatory variables.
+
+```{r, echo=FALSE}
+#making model
+mlr <- lm(data_mlr$Life.expectancy ~
+          data_mlr$infant.deaths +
+          data_mlr$BMI +
+          data_mlr$Total.expenditure +
+          data_mlr$Schooling)
+mlr
+#Global test
+a.mlr <- anova(mlr); a.mlr
+r2 <- (sum(a.mlr[1:4, "Sum Sq"])/sum(a.mlr[,"Sum Sq"]))
+F.stat <- (sum(a.mlr[1:4, "Mean Sq"])/4)/(a.mlr[5, "Mean Sq"]) 
+crit.F <- qf(.95, df1 = 4, df2 = 166) #2.426106
+print(paste("Critical F(df = 4, 166, alpha = 0.05) =", crit.F))
+print(paste("R^2 =", r2))
+print(paste("F(df = 3, 98) =", F.stat))
+```
+
+The least squares regression equation that predicts life expectancy(y) from infant deaths(X1), BMI(X2), Total expenditure(X3), and Schooling(X4) is:
+
+y(hat) = 40.946582 - 0.003167 * X(1) + 0.041150 * X(2) +  0.192494 * X(3) + 2.160707 * X(4)
+
+And based on the information above, there is significant evidence at the alpha level of 0.05 that there is at least one slope coefficient that is different than 0. Thus, there is significant evidence of linear association between the response and at least one of the explanatory variables. Looking at the R^2 value, the model seems to do a decent job of explaining the variation of life expectancy. However, as mentioned earlier, each variable needs to be looked at to determine their significance in the overall model. 
+
+```{r, echo=FALSE}
+
+summary(mlr)
+```
+
+The summary of the model above clearly shows that infant deaths and Total expenditure are insignificant to the model when adjusting for the other explanatory variables, with very large p-values. Since infant deaths seems to be the least significant to the model, that will be removed first to see how the model is affected.
+
+**Without infant deaths**
+
+```{r, echo=FALSE}
+#w/o infant deaths
+mlr <- lm(data_mlr$Life.expectancy ~
+            data_mlr$BMI +
+            data_mlr$Total.expenditure +
+            data_mlr$Schooling)
+summary(mlr)
+```
+
+With barely any change to the R^2 value, this seems like a better model. Since Total expenditure is still insignificant when adjusting for the other explanatory variables, that will also be removed, most likely producing the best predictive model.
+
+**Without infant deaths and Total Expenditure**
+
+```{r, echo=FALSE}
+#w/o infant deaths and Total expenditure
+mlr <- lm(data_mlr$Life.expectancy ~
+            data_mlr$BMI +
+            data_mlr$Schooling)
+summary(mlr)
+```
+
+Following the same test of significance as before and seeing the very small reduction in R^2, as expected the model that best predicts life expectancy(y) from the available explanatory variables is:
+
+y = 0.04351 * X1(BMI) + 2.22589 * X2(Schooling) + 41.11694 + e 
+
+```{r, echo=FALSE}
+
+#residual vs fitted plot
+par(pty = "s")
+plot(fitted(mlr), resid(mlr), axes = TRUE,
+     frame.plot = TRUE, xlab = "Fitted Values", 
+     ylab = "Residuals", main = "Residuals VS Fitted Values")
+abline(0,0, col = "blue")
+```
+
+The fit of the model also seems reasonable - the points seem random, with variation for the most part constant, and linearity and normality also holding.
+
+## Results: Test of Proportions and Logistic Regression
+
+**Life Expectancy 1 (Successes) >= 71.7655; < 71.7655 is 0 (Failure)**
+
+```{r, echo=FALSE, message=FALSE}
+
+library(binda)
+#dichotomizing life expectancy
+# >= 71.7655 == 1 ; < 71.7655 == 0
+data_group <- subset(data_noNA_2014, select = c(Life.expectancy, Status))
+LE <- as.matrix(data_group$Life.expectancy)
+thr <- mean(data_group$Life.expectancy) #71.7655
+LE_level <- dichotomize(LE, thr)
+data_group$LE_level <- LE_level
+
+#making status dummy variable 
+data_group$status_level <-ifelse(data_group$Status=="Developed", 1, 2)
+
+LE_counts <- data_group %>% count(status_level, LE_level)
+
+g1 <- data_group %>% mutate(status_level = factor(status_level,
+                                                  labels = c("Developed", 
+                                                             "Developing")),
+                            LE_level = factor(LE_level))
+#graphing proportions 
+ggplot(g1, aes(x = LE_level, fill = status_level)) +
+  geom_bar(position = "fill") +
+  ggtitle("Life Expectancy by Country Status") +
+  labs(x = "Life Expectancy (Dichotomized)",
+       y = "Proportion From Sample Size") +
+  theme(plot.title = element_text(hjust = 0.5))
+
+df.summaryQ2 <- data.frame("Population" = c(1, 2),
+                    "Description" = c("Developed", "Developing"),
+                    "Sample.Size" = c(29, 142),
+                    "Successes" = c(29, 70),
+                    "Failures" = c(0, 72),
+                    "Sample.Proportions" = c(29/29, 70/142))
+kable(df.summaryQ2)
+```
+
+Looking at the table and graph above, a visual, quick analysis of the sample data seems to insinuate that a greater proportion of developed countries compared to developing countries have a life expectancy above the mean life expectancy of all countries in 2014; however, further analysis from a two-sample test for proportions will provide better insight.
+
+```{r, echo=FALSE}
+
+z <- (df.summaryQ2$Sample.Proportion[1] -
+           df.summaryQ2$Sample.Proportion[2]) /
+  sqrt((sum(df.summaryQ2$Successes)/
+          sum(df.summaryQ2$Sample.Size)) * 
+         (1 - (sum(df.summaryQ2$Successes)/
+          sum(df.summaryQ2$Sample.Size))) *
+         (1/df.summaryQ2$Sample.Size[1] +
+            1/df.summaryQ2$Sample.Size[2]))
+#5.039663
+
+crit.z <- qnorm(p=.05/2, lower.tail = FALSE) #1.959964
+
+#significance test with manual check above
+prop.test(c(29,70), c(29,142), conf.level = .95, correct = FALSE)
+
+#risk difference
+RD <- df.summaryQ2$Sample.Proportion[1] -
+      df.summaryQ2$Sample.Proportion[2]
+print(paste("The estimate of the risk difference is", RD))
+```
+
+From the above data, it is clear there is significant evidence at the alpha level of 0.05 that the proportion of developed countries have a higher life expectancy than developing countries. Since we have significant evidence of proportional differences, a logistic regression, if proven significant, might give insight to the quantifiable advantage developed countries might have over developing countries regarding life expectancy.
+
+```{r, echo=FALSE}
+
+#logistic regression model
+lr.m <- glm(data_group$LE_level ~ data_group$status_level, family = binomial)
+summary(lr.m)
+```
+
+From the output above testing the significance of the logistic regression model, we fail to reject the null hypothesis, and that there is evidence that at the alpha level of 0.05, B(1) = 0. Therefore, we have proven that the developed countries have a greater proportion of life expectancy above the world mean, but there is not significant evidence of an association between Country status and the risk of having a lower/higher life expectancy. Relating this to the other statistical tests done earlier, this gives a very interesting, philosophical insight into the possible biggest influence of life expectancy.  
+
+## Conclusion
+
+Information is power. 
+
+From the above studies, it is clear that the more information an individual, or country, might be able to access, the greater the life expectancy. This is insinuated by looking at the results provided when answering the three proposed questions outlining the research theme. First, showing that life expectancy significantly increased between 2000 and 2015, the initial hypothesis that life expectancy increased during the tech and information boom can be more deeply explored. Next, after attempting to form a predictive model that fit the distribution of life expectancy from the sample provided; surprisingly, schooling was by far the most influential contributor to life expectancy. This, along with the fact that life expectancy significantly increased over the tech and information boom, starts to show a consistent pattern for life expectancy and knowledge, and in this setting, deemed as information accessibility. Finally, while the proportion of developed countries having a higher than average life expectancy compared to developing countries was confirmed, the notion of developed countries having a measurable advantage over developing countries in regards to life expectancy was disproven. While there is a puzzling nature to this, a possibility does comes to mind when relating this to the importance of schooling in the formulated model fitting life expectancy to amount of schooling and BMI. Since developed vs developing countries normally relates to infrastructure and GDP, it does not necessarily relate to the access of information and education through personal technology - remote places can now have access to phones and online-schooling, internet is effectively available everywhere, and collaboration and the ability to share information and intelligence on a global scale has never been greater. While not a definitive direct answer to the research question posed in the introduction, a strong, educated insight has been developed:
+
+**The importance of providing accessible, real education and information to people on an individual level is paramount to the lengthening of human life on a global scale**
+
+While some strong convictions can be formulated from this study, it does have some potential pitfalls. First, some factors that may completely change the influence of schooling on life expectancy were not included in the data set. For example, child starvation was available in the raw data, but left out of the clean data. Also clean water accessibility was not even included in the raw data. Another pitfall were some of the inferences made from looking at all three studies together, such as the fact that there is no direct meaning of what contributes to being a "developed" country. In future studies, it would be very beneficial to define what makes a country "developed" in the data. Also, deeper insights could be developed by expanding on the variable Schooling. Instead, it could be a grouped factor variable relating to a broader category of information accessibility. One group could very well be years of schooling,and others could consist of smart phone use per capita, internet access, etc. 
+
+In conclusion, information is power, and individually this power can be fuel for human life.
+
+
+
