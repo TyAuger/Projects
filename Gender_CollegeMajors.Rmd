@@ -1,0 +1,413 @@
+--- 
+title: "How Gender May Determine the Economic Value of                             College Majors"
+author: "Tyler Auger"
+output:
+  html_document:
+    fig_width: 8
+    code_folding: hide
+    highlight: tango
+    toc: true
+    toc_float:
+      collapsed: true
+---
+ 
+    
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(fig.width=8, fig.height=4,
+                      echo=FALSE, warning=FALSE, message=FALSE)
+```
+*Boston University*
+*CS544 Final Project (Prof. Kalathur, Spring 2021)*
+
+## Background
+
+The glass ceiling has been a real and known roadblock towards gender equality. Even today, some women earn only about 70% of their male counterparts. In my life, I have seen this discrimination towards loved ones and friends, especially among driven women looking to work in STEM fields or higher-education roles. While plenty of studies have been done focusing on the discrepancies women face in the workplace, further insights need to be developed regarding the initial conditions and disparities women face before even entering their respective fields. For example, what is the distribution of women compared to men in traditionally higher earning, gender-stereotyped majors, and is there a correlation between the share of college graduate women in these majors and median salary, unemployment, and low-income work (effectively making their college education irrelevant).
+
+## Dataset and Preprocessing
+
+The dataset used in this analysis is from American Community Survey 2010-2012 Public Use Microdata Series. The main purpose of this data set was from, "What's it Worth?: The Economic Value of College Majors." Georgetown University Center on Education and the Workforce, 2011. The data is provided below as a csv. 
+
+* [recent-grads.csv](https://raw.githubusercontent.com/fivethirtyeight/data/master/college-majors/recent-grads.csv)
+
+Looking at the raw data as a whole, some categories seemed to be unnecessary, redundant, or act as a primary/foreign key. These were removed, giving the table below: 
+
+```{r, echo=TRUE}
+#Importing my full, raw dataset
+recent_grads <- read.csv("https://raw.githubusercontent.com/fivethirtyeight/data/master/college-majors/recent-grads.csv")
+
+#Using dplyr to select only the desired columns,
+#and rmarkdown to make a more fit, paged table
+
+library(dplyr)
+library(rmarkdown)
+
+majorbysex <- paged_table((select(recent_grads, Major, 
+                               Total,Men, Women, 
+                               Major_category, 
+                               ShareWomen,Median, 
+                               Unemployment_rate, 
+                               College_jobs, 
+                               Non_college_jobs, 
+                               Low_wage_jobs))) 
+majorbysex
+
+```
+
+## General Median Earnings and Major Category Distribution by Gender
+
+The best first approach is to get a general understanding of the overall data. The expected salary distribution, boxplot analysis of median salaries by major, and distribution of major categories by the graduates' gender starts to give a picture of a random graduate in the study. Since there are 173 different majors in this dataset, the 16 different major categories seem like a better macro-perspective. 
+
+```{r, echo=TRUE}
+
+# # of Major_categories : length(unique(majorbysex$Major_category))
+
+#Library used for plots
+library(plotly)
+
+#Q1: what does a new grad make?
+
+#First the overall distribution of median salaries among graduates
+
+x<- list(
+  title = "Median Salary"
+)
+
+y <- list(
+  title = "Frequency" 
+)
+
+plot_ly(majorbysex, x = ~Median) %>% 
+  layout(xaxis = x, yaxis = y)
+
+print(paste("mu =", mean(majorbysex$Median)))
+print(paste("sigma =", sd(majorbysex$Median)))
+```
+
+As expected, the distribution of median salaries among recent graduates is right-skewed. This is generally a logical and common trend when dealing with incomes.
+
+```{r, echo=TRUE}
+#Second box plot analysis of median salaries by major category
+cats <- unique(majorbysex$Major_category)
+
+medianBYcat <- majorbysex %>% group_by(Major_category) %>% 
+  select(Median, Major_category); #medianBYcat
+
+y <- list(
+    title = ""
+)
+x <- list(
+    title = "Median Salary"
+)
+plot_ly(medianBYcat, x = ~Median[medianBYcat$Major_category == cats[1]], type = "box", name = ~cats[1]) %>%
+  add_trace(x = ~Median[medianBYcat$Major_category == cats[2]], name = ~cats[2]) %>% 
+  add_trace(x = ~Median[medianBYcat$Major_category == cats[3]], name = ~cats[3]) %>%
+  add_trace(x = ~Median[medianBYcat$Major_category == cats[4]], name = ~cats[4]) %>%
+  add_trace(x = ~Median[medianBYcat$Major_category == cats[5]], name = ~cats[5]) %>%
+  add_trace(x = ~Median[medianBYcat$Major_category == cats[6]], name = ~cats[6]) %>%
+  add_trace(x = ~Median[medianBYcat$Major_category == cats[7]], name = ~cats[7]) %>%
+  add_trace(x = ~Median[medianBYcat$Major_category == cats[8]], name = ~cats[8]) %>%
+  add_trace(x = ~Median[medianBYcat$Major_category == cats[9]], name = ~cats[9]) %>%
+  add_trace(x = ~Median[medianBYcat$Major_category == cats[10]], name = ~cats[10]) %>%
+  add_trace(x = ~Median[medianBYcat$Major_category == cats[11]], name = ~cats[11]) %>%
+  add_trace(x = ~Median[medianBYcat$Major_category == cats[12]], name = ~cats[12]) %>%
+  add_trace(x = ~Median[medianBYcat$Major_category == cats[13]], name = ~cats[13]) %>%
+  add_trace(x = ~Median[medianBYcat$Major_category == cats[14]], name = ~cats[14]) %>%
+  add_trace(x = ~Median[medianBYcat$Major_category == cats[15]], name = ~cats[15]) %>%
+  add_trace(x = ~Median[medianBYcat$Major_category == cats[16]], name = ~cats[16]) %>%
+  layout(yaxis = y, xaxis = x)
+
+print(paste("Engineering outlier is",  majorbysex$Major[majorbysex$Median == max(majorbysex$Median)], "with a median salary of", max(majorbysex$Median)))
+```
+
+Some of the major categories seem to potentially have some outliers, such as education, arts, agricultural and natural resources, and physical sciences. Definitively though, the clear outlier is Petroleum engineering, with a median salary of $110,000. However, since we are looking at the inequalities between men and women dominated majors, I decided to keep the data point since the major was heavily male dominated. 
+
+```{r, echo=TRUE}
+#Q2: distribution of college majors[total,men,women]
+
+x <- list(
+    title = "Major Category"
+)
+
+y <- list(
+    title = "Graduates", range = c(0, max(majorbysex$Total) + 200000)
+)
+
+#PLot
+Mcat_dis1 <- plot_ly(majorbysex, x = ~Major_category, y= ~Total, type = "bar",
+                    name = "Graduates") %>% 
+                    add_trace(y = ~Men, name = "Male") %>%
+                    add_trace(y = ~Women, name = "Female") %>%
+                    layout(xaxis = x, yaxis = y, barmode = "group")
+Mcat_dis1
+```
+
+Briefly looking at the data, it seems that men are disproportionately represented in STEM careers. 
+
+## Men vs. Women
+
+Gender inequality between male and female recent grads may be found in multiple ways in the dataset. In this analysis, comparing median salaries between male dominated majors and female dominated majors, and the unemployment rate, number of low-income jobs and non-college jobs of those majors may show further insights. 
+
+*N.B. >50% representation is considered dominate. 
+
+```{r echo=TRUE}
+
+#Had to remove 2 majors due to NA 
+#Dominated refers to over 50% representation
+
+xw <- list(
+  title = "Median Salary of Female Dominated Majors"
+)
+
+xm <- list(
+  title = "Median Salary of Male Dominated Majors"
+)
+
+y <- list(
+  title = "Frequency"
+)
+
+#Women Dominated Median Distribution
+Wmeddis <- plot_ly(majorbysex, x = ~Median[majorbysex$ShareWomen > .5][-2], name = "Female Dominated") %>% layout(xaxis = xw, yaxis = y)
+
+#Male Dominated Median Distribution
+Mmeddis <- plot_ly(majorbysex, x = ~Median[majorbysex$ShareWomen < .5][-21], name = "Male Dominated") %>% layout(xaxis = xm, yaxis = y)
+
+#plotting
+subplot(Wmeddis, Mmeddis)
+
+#Printing Mus
+print(paste("Female dominated majors mean Median Salary:", mean(majorbysex$Median[majorbysex$ShareWomen > .5][-2])))
+
+print(paste("Male dominated majors mean Median Salary:", mean(majorbysex$Median[majorbysex$ShareWomen < .5][-21])))
+
+```
+
+Looking at the frequency of median salaries between male and female dominated majors, male dominated majors make about 1.36x that of female dominated majors on average.
+
+
+```{r, echo=TRUE}
+
+x <- list(
+  title = ""
+)
+
+y <- list(
+  title = "Unemployment Rate"
+)
+
+#Women Dominated Unemployment
+
+Wunem <- plot_ly(majorbysex, x = ~Major[majorbysex$ShareWomen > .5][-2], y = ~Unemployment_rate[majorbysex$ShareWomen > .5][-2]) %>%
+  layout(xaxis = x, yaxis = y, title = "Female Dominated Majors with Unemployment")
+Wunem
+
+print(paste("Mean unemployment rate for recent grads with female dominated majors:", mean(majorbysex$Unemployment_rate[majorbysex$ShareWomen > .5][-2]), "with sigma =", sd(majorbysex$Unemployment_rate[majorbysex$ShareWomen > .5][-2])))
+
+#Male Dominated Unemployment
+
+Munem <- plot_ly(majorbysex, x = ~Major[majorbysex$ShareWomen < .5][-21], y = ~Unemployment_rate[majorbysex$ShareWomen < .5][-21]) %>% layout(xaxis = x, yaxis = y, title = "Male Dominated Majors with Unemployment")
+Munem
+
+print(paste("Mean unemployment rate for recent grads with male dominated majors:", mean(majorbysex$Unemployment_rate[majorbysex$ShareWomen < .5][-21]), "with sigma =", sd(majorbysex$Unemployment_rate[majorbysex$ShareWomen < .5][-21])))
+```
+
+In this case, it looks like the mean and unemployment rates among recent grads with either gender dominated majors are equal. The only slight difference is male dominated majors seem to have a slightly higher standard deviation.
+
+```{r, echo=TRUE}
+
+x <- list(
+  title = ""
+)
+
+y <- list(
+  title = "Low Wage Job"
+)
+
+
+#Women Dominated Unemployment
+
+Wunem <- plot_ly(majorbysex, x = ~Major[majorbysex$ShareWomen > .5][-2], y = ~Low_wage_jobs[majorbysex$ShareWomen > .5][-2]) %>%
+  layout(xaxis = x, yaxis = y, title = "Female Dominated Majors with Low Wage Jobs")
+Wunem
+
+print(paste("Mean Low Wage Jobs for recent grads with female dominated majors:", mean(majorbysex$Low_wage_jobs[majorbysex$ShareWomen > .5][-2])))
+
+#Male Dominated Unemployment
+
+Munem <- plot_ly(majorbysex, x = ~Major[majorbysex$ShareWomen < .5][-21], y = ~Low_wage_jobs[majorbysex$ShareWomen < .5][-21]) %>% layout(xaxis = x, yaxis = y, title = "Male Dominated Majors with Low Wage Jobs")
+Munem
+
+print(paste("Mean Low wage Jobs for recent grads with male dominated majors:", mean(majorbysex$Low_wage_jobs[majorbysex$ShareWomen < .5][-21])))
+```
+
+A 'low wage job' in this study is considered a service job that makes close to minimum wage. Recent graduates who chose female dominated majors have a disproportionate amount of low wage jobs compared to their male dominated counterparts, nearly 2:1.
+
+## Distribution of Median Salaries and the CLT
+
+Since a good portion of our analysis deals with median salaries among majors, it seems like a good numeric variable to explore. Since the data is right-skewed, a good way to do this is the central limit theorem. The central limit theorem states that, 'if you have a population with mean μ and standard deviation σ and take sufficiently large random samples from the population with replacement, then the distribution of the sample means will be approximately normally distributed.' This is important because many techniques require normality, and due to the central limit theorem, we can apply them to non-normal datasets.
+
+By taking the means of various sample sizes, we will see how the right-skewed data develops normality as the sample sizes increase, and proves the applicability of the central limit theorem.
+
+```{r, echo=TRUE}
+
+#Libraries for CLT and sampling methods
+library(prob)
+library(sampling)
+
+#Sample size 20
+samples20 <- replicate(75, sample(majorbysex$Median, 20), simplify = FALSE)
+samples20_mean <- as.data.frame(sapply(samples20, mean, simplify = TRUE))
+
+#Sample size 40
+samples40 <- replicate(75, sample(majorbysex$Median, 40), simplify = FALSE)
+samples40_mean <- as.data.frame(sapply(samples40, mean, simplify = TRUE))
+
+#Sample size 60
+samples60 <- replicate(75, sample(majorbysex$Median, 60), simplify = FALSE)
+samples60_mean <- as.data.frame(sapply(samples60, mean, simplify = TRUE))
+
+#Sample size 80
+samples80 <- replicate(75, sample(majorbysex$Median, 80), simplify = FALSE)
+samples80_mean <- as.data.frame(sapply(samples80, mean, simplify = TRUE))
+
+#Making plots, then subplot, then mu and sigma respectively
+s20 <- plot_ly(samples20_mean, x = ~sapply(samples20, mean, simplify = TRUE), name = "Sample Size 20")
+s40 <- plot_ly(samples40_mean, x = ~sapply(samples40, mean, simplify = TRUE), name = "Sample Size 40")
+s60 <- plot_ly(samples60_mean, x = ~sapply(samples60, mean, simplify = TRUE), name = "Sample Size 60")
+s80 <- plot_ly(samples80_mean, x = ~sapply(samples80, mean, simplify = TRUE), name = "Sample Size 80")
+subplot(s20,s40,s60,s80)
+
+print(paste("Mean of Median Salaries:", mean(majorbysex$Median), 
+      "Standard Deviation of Median Salaries", sd(majorbysex$Median)))
+
+print(paste("Mean of Sample Size = 20:", mean(samples20_mean[,1]),
+      "Standard Deviation of Sample Size = 40:", sd(samples20_mean[,1])))
+
+print(paste("Mean of Sample Size = 40:", mean(samples40_mean[,1]),
+      "Standard Deviation of Sample Size = 40:", sd(samples40_mean[,1])))
+
+print(paste("Mean of Sample Size = 60:", mean(samples60_mean[,1]),
+      "Standard Deviation of Sample Size = 60:", sd(samples60_mean[,1])))
+
+print(paste("Mean of Sample Size = 80:", mean(samples80_mean[,1]),
+      "Standard Deviation of Sample Size = 80:", sd(samples80_mean[,1]))) 
+```
+
+## Various Sampling Methods
+
+Sampling is a technique used to select a representative, or random portion of the data to perform further studies on. Arguably the two most common forms of sampling are simple random sampling without replacement and systematic sampling. Simple random sampling is one of the most basic and straight forward techniques that chooses random samples from the population without replacing them after selection. Systematic sampling uses fixed intervals with a random starting point within the interval range to select data from the group. The fixed interval is decided as a ratio of the whole population sample and the desired sample size.
+With sampling, we can affirm the consistency of the distribution of Major categories.  
+Both techniques are demonstrated below:
+
+```{R, echo=TRUE}
+
+xs <- list(
+  title = ""
+)
+ys <- list(
+  title = "Proportion"
+)
+
+#Total Population
+
+zdata <- as.data.frame(prop.table(table(majorbysex$Major_category)))
+z <- plot_ly(zdata, x = ~Var1, y = ~Freq, name = "Population") %>%
+  layout(xaxis = xs, yaxis = ys)
+
+#SRSWOR
+
+set.seed(1201)
+
+s <- srswor(50, nrow(majorbysex))
+swor <- majorbysex[s!=0,]
+sworplot <- as.data.frame(prop.table(table(swor$Major_category)))
+sr <- plot_ly(sworplot, x = ~Var1, y = ~Freq, name = "SRSWOR") %>%
+  layout(xaxis = xs, yaxis = ys)
+
+#Systematic Sampling
+
+set.seed(1201)
+
+kb <- ceiling(nrow(majorbysex)/50)
+rb <- sample(kb, 1)
+seq.b <- seq(rb, by = kb, length = 50)
+qos <- (majorbysex[seq.b,])
+qosplt <- as.data.frame(prop.table(table(qos$Major_category)))
+qp <- plot_ly(qosplt, x = ~Var1, y = ~Freq, name = "Systematic Sampling") %>%
+  layout(xaxis = x, yaxis = y)
+
+# Now graphing
+
+subplot(z, sr, qp)
+```
+
+There does not seem to be much difference, which is what we expected. Effectively simulating the different 'departments' a college could offer, the consistency among sampling helps reassure that the same major opportunities based on their underlying fields are available from college to college - This data should be able to be applied generally, and different reiterations should yield similar results.  
+
+## A Clear Depiction
+
+To get an  overall summary of the objective of this study, a simple linear regression can be applied to the number of women in a given major, and  the median salary of a recent graduate with that major.
+
+```{r, echo=TRUE}
+
+#Simple regression fit 
+
+#tailored data, getting rid of NA @ [22]
+regW <- select(majorbysex, Women, Median)
+regW <- regW[-22,-22]
+
+#best fit line
+fit <- lm(Women ~ Median, data = regW)
+
+x <- list(
+  title = "Median Salary of Recent Women Graduates"
+)
+
+#simple scatter correlation with best fit line.. simple regression
+
+  plot_ly(regW, x = ~Median, y = ~Women, title = "A Clear Disadvantage", type = "scatter") %>% 
+          add_lines(x = ~Median, y = fitted(fit)) %>%
+        layout(xaxis = x, showlegend = FALSE)
+```
+
+While not a perfect correlation, there definitely is a negative trend between the amount of graduated women in a major and the median salary of the recent grad.
+
+## The Social Construct
+
+While not necessarily a statistical process, the word clouds below helps demonstrate the social, political, and other pressures women and men face when choosing career paths and education. While the population for the word cloud is only based on the frequency of major categories from this study; thus somewhat limited, it does have merit based on the consistency found from using the various sampling methods.  
+
+```{r, echo=TRUE}
+#Wordcloud
+
+library(wordcloud)
+
+#two panels
+par(mfrow = c(1, 2), mar=c(.5,.5,.5,.5))
+
+#word cloud for Women dominated majors
+
+wwc <- as.matrix(sort(table(majorbysex$Major_category[majorbysex$ShareWomen > .5][-2]), decreasing = TRUE))
+wordcloud(rownames(wwc), wwc, min.freq = 1,
+          random.order = FALSE, 
+          random.color = FALSE, 
+          colors = c("lightsteelblue1", "lightsteelblue2", 
+                     "lightsteelblue3", "lightsteelblue4"))
+
+#word cloud for male dominated majors
+
+mwc <- as.matrix(sort(table(majorbysex$Major_category[majorbysex$ShareWomen < .5][-21]), decreasing = TRUE))
+wordcloud(rownames(mwc), mwc, min.freq = 1,
+          random.order = FALSE, 
+          random.color = FALSE, 
+          colors = c("indianred1", "indianred2", 
+                     "indianred3", "indianred4"))
+
+```
+
+## Conclusion and Further Insight
+
+The objective of this study was to explore the possibility of an 'unequal starting point' between male dominated and female dominated career paths. The data confirmed these suspicions. It seems that male dominated career paths among recent graduates have an unfair financial advantage, and more importantly, forces outside the scope of this study seem to push  women towards lower salary jobs and education, while their male counterparts are pushed toward higher paying jobs and educational paths.
+
+In future studies, much more random sampling, especially stratified sampling can be done to look at certain subsets of the population, and the differences various sample groups might face even in the same underlying population base. In addition, instead of just simple regression trends, multivariate regression, and non-linear studies could be done to develop deeper, more specific insights.
+
+While this study focused on the broad group of 'men' and 'women', the same principles can and should be applied to different races and socioeconomic groups in the same sex. 
+Also, as the spectrum of gender identity continues to grow, so does the need for these analytics towards non-binary gender identities. 
