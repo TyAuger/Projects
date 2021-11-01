@@ -20,4 +20,4 @@ CS555: Data Visualization in R
    - LifeExpectancyData.csv: data file 
 
 CS526: Algorithms and Data Structures 
-   - Backtracking_funcs_SudokuGUI.py: backend functions for Sudoku app that generates a solvable, random sudoku puzzle based on difficulty levels; *Full GUI version coming* 
+   - Backtracking_funcs_SudokuGUI.py: backend functions for Sudoku app that generates a solvable, random sudoku puzzle based on difficulty levels; *Full GUI version in development* 
